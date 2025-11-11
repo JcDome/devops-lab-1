@@ -162,7 +162,7 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Ejecutando análisis de SonarQube..."
-          sonar-scanner `
+          & sonar-scanner --% `
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} `
             -Dsonar.projectName="${{ env.SONAR_PROJECT_NAME }}" `
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} `
