@@ -137,30 +137,37 @@ jobs:
               Write-Host "Temp file already has correct .zip extension: $tempPath"
           }
 
-      - name: Run SonarQube Scan with Coverage
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://localhost:9000
-
-      - name: Fix SonarScanner2 temp zip name
+      - name: Prepare SonarScanner manually
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          $tempPath = (Get-ChildItem "$env:RUNNER_TEMP" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-          if ($tempPath -like '*.ps1') {
-              # Cambia la extensión .ps1 por .zip
-              $newPath = [System.IO.Path]::ChangeExtension($tempPath, '.zip')
-              Rename-Item -Path $tempPath -NewName (Split-Path $newPath -Leaf)
-              Write-Host "Renamed temp file to: $newPath"
-          } elseif (-not ($tempPath -like '*.zip')) {
-              # Si no tiene extensión .zip ni .ps1, le añade .zip
-              $newPath = "$tempPath.zip"
-              Rename-Item -Path $tempPath -NewName (Split-Path $newPath -Leaf)
-              Write-Host "Renamed temp file to: $newPath"
-          } else {
-              Write-Host "Temp file already has correct .zip extension: $tempPath"
-          }
+          $url = "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.2.0.5079-windows-x64.zip"
+          $zipPath = "$env:RUNNER_TEMP\sonar.zip"
+          $extractPath = "$env:RUNNER_TEMP\sonar"
+
+          Write-Host "Descargando SonarScanner..."
+          Invoke-WebRequest -Uri $url -OutFile $zipPath
+
+          Write-Host "Descomprimiendo..."
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $extractPath -Force
+          Write-Host "SonarScanner extraído correctamente en: $extractPath"
+
+          # Añadimos el ejecutable al PATH
+          $scannerBin = Get-ChildItem -Path $extractPath -Recurse -Include "sonar-scanner.bat" | Select-Object -First 1
+          $scannerDir = Split-Path $scannerBin.FullName -Parent
+          Write-Host "Añadiendo $scannerDir al PATH"
+          echo "$scannerDir" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+
+      - name: Run SonarQube Scan with Coverage
+        shell: powershell
+        run: |
+          Write-Host "Ejecutando análisis de SonarQube..."
+          sonar-scanner `
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} `
+            -Dsonar.projectName="${{ env.SONAR_PROJECT_NAME }}" `
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} `
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} `
+            -Dsonar.python.coverage.reportPaths=coverage.xml
 
       - name: Wait & check SonarQube quality gate
         run: |
