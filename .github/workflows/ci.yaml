@@ -143,6 +143,25 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://localhost:9000
 
+      - name: Fix SonarScanner2 temp zip name
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $tempPath = (Get-ChildItem "$env:RUNNER_TEMP" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+          if ($tempPath -like '*.ps1') {
+              # Cambia la extensión .ps1 por .zip
+              $newPath = [System.IO.Path]::ChangeExtension($tempPath, '.zip')
+              Rename-Item -Path $tempPath -NewName (Split-Path $newPath -Leaf)
+              Write-Host "Renamed temp file to: $newPath"
+          } elseif (-not ($tempPath -like '*.zip')) {
+              # Si no tiene extensión .zip ni .ps1, le añade .zip
+              $newPath = "$tempPath.zip"
+              Rename-Item -Path $tempPath -NewName (Split-Path $newPath -Leaf)
+              Write-Host "Renamed temp file to: $newPath"
+          } else {
+              Write-Host "Temp file already has correct .zip extension: $tempPath"
+          }
+
       - name: Wait & check SonarQube quality gate
         run: |
           chmod +x scripts/check_sonar_quality_gate.sh
