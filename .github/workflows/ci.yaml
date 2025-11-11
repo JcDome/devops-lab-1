@@ -118,6 +118,17 @@ jobs:
         with:
           name: coverage-reports
 
+      - name: Fix SonarScanner temp zip name
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tempPath = (Get-ChildItem "$env:RUNNER_TEMP" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+          if (-not ($tempPath -like '*.zip')) {
+              $newPath = "$tempPath.zip"
+              Rename-Item -Path $tempPath -NewName (Split-Path $newPath -Leaf)
+              Write-Host "Renamed temp file to: $newPath"
+          }
+
       - name: Run SonarQube Scan with Coverage
         uses: SonarSource/sonarqube-scan-action@v6
         env:
