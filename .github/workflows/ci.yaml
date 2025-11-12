@@ -7,7 +7,7 @@ on:
 
 jobs:
   lint:
-    name: Lint Code
+    name: Lint Code 🔎
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,7 +42,7 @@ jobs:
             ./scripts/check_pylint_score.sh 8.0
 
   test:
-    name: Run Tests with Coverage
+    name: Run Tests with Coverage 🧪
     runs-on: ubuntu-latest
     needs: lint
     steps:
@@ -64,9 +64,9 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          echo "Running unit tests with coverage analysis..."
+          echo "🧪 Running unit tests with coverage analysis..."
           pytest test_app.py -v --cov=app --cov-report=term --cov-report=xml --cov-report=html
-          echo "Tests completed with coverage analysis!"
+          echo "✅ Tests completed with coverage analysis!"
 
       - name: Check coverage threshold
         run: |
@@ -85,7 +85,7 @@ jobs:
 
       - name: Display coverage summary
         run: |
-          echo "Coverage Summary:"
+          echo "📊 Coverage Summary:"
           echo "==================="
           python -c "
           import xml.etree.ElementTree as ET
@@ -101,7 +101,7 @@ jobs:
           "
 
   sonar:
-    name: SonarQube Analysis with Coverage
+    name: SonarQube Analysis with Coverage 📈
     runs-on: self-hosted
     needs: test
     env:
@@ -118,56 +118,11 @@ jobs:
         with:
           name: coverage-reports
 
-      - name: Fix SonarScanner temp zip name
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          $tempPath = (Get-ChildItem "$env:RUNNER_TEMP" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-          if ($tempPath -like '*.ps1') {
-              # Cambia la extensión .ps1 por .zip
-              $newPath = [System.IO.Path]::ChangeExtension($tempPath, '.zip')
-              Rename-Item -Path $tempPath -NewName (Split-Path $newPath -Leaf)
-              Write-Host "Renamed temp file to: $newPath"
-          } elseif (-not ($tempPath -like '*.zip')) {
-              # Si no tiene extensión .zip ni .ps1, le añade .zip
-              $newPath = "$tempPath.zip"
-              Rename-Item -Path $tempPath -NewName (Split-Path $newPath -Leaf)
-              Write-Host "Renamed temp file to: $newPath"
-          } else {
-              Write-Host "Temp file already has correct .zip extension: $tempPath"
-          }
-
-      - name: Prepare SonarScanner manually
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          $url = "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.2.0.5079-windows-x64.zip"
-          $zipPath = "$env:RUNNER_TEMP\sonar.zip"
-          $extractPath = "$env:RUNNER_TEMP\sonar"
-
-          Write-Host "Descargando SonarScanner..."
-          Invoke-WebRequest -Uri $url -OutFile $zipPath
-
-          Write-Host "Descomprimiendo..."
-          Expand-Archive -LiteralPath $zipPath -DestinationPath $extractPath -Force
-          Write-Host "SonarScanner extraído correctamente en: $extractPath"
-
-          # Añadimos el ejecutable al PATH
-          $scannerBin = Get-ChildItem -Path $extractPath -Recurse -Include "sonar-scanner.bat" | Select-Object -First 1
-          $scannerDir = Split-Path $scannerBin.FullName -Parent
-          Write-Host "Añadiendo $scannerDir al PATH"
-          echo "$scannerDir" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
-
       - name: Run SonarQube Scan with Coverage
-        shell: powershell
-        run: |
-          Write-Host "Ejecutando análisis de SonarQube..."
-          & sonar-scanner --% `
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} `
-            -Dsonar.projectName="${{ env.SONAR_PROJECT_NAME }}" `
-            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} `
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} `
-            -Dsonar.python.coverage.reportPaths=coverage.xml
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://localhost:9000
 
       - name: Wait & check SonarQube quality gate
         run: |
@@ -177,14 +132,14 @@ jobs:
       - name: Display SonarQube metrics
         if: always()
         run: |
-          echo "SonarQube Analysis Complete!"
+          echo "🎯 SonarQube Analysis Complete!"
           echo "================================"
-          echo "heck your SonarQube dashboard at: $SONAR_HOST_URL"
-          echo "Project: $SONAR_PROJECT_KEY"
-          echo "Coverage data has been integrated with code quality metrics"
+          echo "📊 Check your SonarQube dashboard at: $SONAR_HOST_URL"
+          echo "🔍 Project: $SONAR_PROJECT_KEY"
+          echo "📈 Coverage data has been integrated with code quality metrics"
 
   build-and-scan:
-    name: Build & Scan Image
+    name: Build & Scan Image 🛠️🔒
     runs-on: ubuntu-latest
     needs: sonar
     steps:
@@ -208,7 +163,7 @@ jobs:
       - name: Display Trivy scan results
         if: always()
         run: |
-          echo "Security Scan Results for test-app:latest"
+          echo "🔍 Security Scan Results for test-app:latest"
           echo "============================================="
           if [ -f trivy-results.txt ]; then
             cat trivy-results.txt
@@ -218,16 +173,16 @@ jobs:
             HIGH=$(grep -c "HIGH" trivy-results.txt || echo "0")
             
             echo ""
-            echo "Summary:"
-            echo "  Critical: $CRITICAL"
-            echo "  High: $HIGH"
+            echo "📊 Summary:"
+            echo "  🔴 Critical: $CRITICAL"
+            echo "  🟠 High: $HIGH"
             
             if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
-              echo "Security vulnerabilities detected!"
-              echo "Consider updating base images or dependencies"
+              echo "⚠️  Security vulnerabilities detected!"
+              echo "🔧 Consider updating base images or dependencies"
             else
-              echo "No critical or high severity vulnerabilities found!"
+              echo "✅ No critical or high severity vulnerabilities found!"
             fi
           else
-            echo "Trivy scan results not found"
+            echo "❌ Trivy scan results not found"
           fi
